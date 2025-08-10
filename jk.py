@@ -56,8 +56,18 @@ class SpeechHandler:
 speech_handler = SpeechHandler()
 
 def jack_print(*args, **kwargs):
+    """Print and speak the provided arguments without duplicating output.
+
+    The original implementation concatenated the arguments into a string and
+    passed both that string *and* the original arguments to ``print``.  This
+    resulted in each message being printed twice (e.g. ``jack_print('hi')``
+    produced ``hi hi``).  Here we forward the original arguments directly to
+    ``print`` and send the combined text to the speech handler.
+    """
+
     text = " ".join(str(arg) for arg in args)
-    print(text, *args, **kwargs)
+    # Print exactly what was requested without the duplicated ``text``
+    print(*args, **kwargs)
     speech_handler.speak(text)
 
 # =========== CONFIGURATION ===========
@@ -710,7 +720,15 @@ class HolographicInterface(tk.Tk):
             return f"Failed to read PDF: {str(e)}"
 
     def _print_to_console(self, text):
-        self.output.insert(tk.END, text + "\n")/Users/georgymarkov/Desktop/jack.py
+        """Display text in the console widget.
+
+        A stray file path accidentally ended up after the call to ``insert``,
+        which caused a ``SyntaxError`` when importing this module.  Removing the
+        path restores the intended behaviour of inserting the text and scrolling
+        to the end.
+        """
+
+        self.output.insert(tk.END, text + "\n")
         self.output.see(tk.END)
 
     def _clear_output(self):
