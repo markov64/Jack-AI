@@ -75,13 +75,13 @@ SPOTIFY_CONFIG = {
 global_lock = threading.Lock()
 
 class QuantumAudioProcessor:
-    def __init__(self):
+    def __init__(self, command_queue=None):
         self.sample_rate = 16000
         self.recognizer = sr.Recognizer()
         self.mic = sr.Microphone()
         self.audio_queue = queue.Queue()
         self.listening = False
-        self.command_queue = queue.Queue()
+        self.command_queue = command_queue if command_queue is not None else queue.Queue()
         self.adjusting_noise = False
         self.audio_thread = None
         self.noise_thread = None  # Thread for noise adjustment
@@ -320,12 +320,12 @@ class MediaMaestro:
 
 class JackCore:
     def __init__(self):
-        self.audio = QuantumAudioProcessor()
+        self.command_queue = queue.Queue()
+        self.response_queue = queue.Queue()
+        self.audio = QuantumAudioProcessor(self.command_queue)
         self.finance = FinancialOracle()
         self.math = HarmonicMathEngine()
         self.media = MediaMaestro()
-        self.command_queue = queue.Queue()
-        self.response_queue = queue.Queue()
         self.personality_params = {
             "creativity": 0.7,
             "verbosity": 0.9,
@@ -663,16 +663,28 @@ class HolographicInterface(tk.Tk):
         self._toggle_voice()
         # Start processing responses in a separate thread
         threading.Thread(target=self._process_responses, daemon=True).start()
+        threading.Thread(target=self._process_voice_commands, daemon=True).start()
 
     def _process_responses(self):
         while True:
             try:
-                response = self.jack.response_queue.get()
+                response = self.jack.response_queue.get(timeout=1)
                 self._print_to_console(response)
             except queue.Empty:
                 time.sleep(0.1)
             except Exception as e:
                 print(f"Response processing error: {e}")
+                traceback.print_exc()
+
+    def _process_voice_commands(self):
+        while True:
+            try:
+                command = self.jack.command_queue.get(timeout=1)
+                self._handle_command(command)
+            except queue.Empty:
+                time.sleep(0.1)
+            except Exception as e:
+                print(f"Voice command processing error: {e}")
                 traceback.print_exc()
 
     def _toggle_voice(self):
@@ -710,7 +722,7 @@ class HolographicInterface(tk.Tk):
             return f"Failed to read PDF: {str(e)}"
 
     def _print_to_console(self, text):
-        self.output.insert(tk.END, text + "\n")/Users/georgymarkov/Desktop/jack.py
+        self.output.insert(tk.END, text + "\n")
         self.output.see(tk.END)
 
     def _clear_output(self):
